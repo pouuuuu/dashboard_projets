@@ -1,0 +1,29 @@
+[Unit]
+Description=FastAPI Dashboard - Gestion des Interventions
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=stgs
+Group=stgs
+WorkingDirectory=/planning_projet/myapp
+Environment="PATH=/home/stgs/.local/bin:/usr/local/bin:/usr/bin:/bin"
+
+# Commande de démarrage
+ExecStart=/home/stgs/.local/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+
+# Redémarrage automatique en cas d'erreur
+Restart=always
+RestartSec=5
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fastapi-dashboard
+
+# Limites de ressources
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
