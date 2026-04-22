@@ -1,42 +1,70 @@
+// ==========================================
+// I. VARIABLES GLOBALES
+// ==========================================
+
+let globalProjectsData = []; // Stocke les données des projets de l'API
+
+// Planning général
+let currentDate = new Date();
+let currentMonth = currentDate.getMonth();
+let currentYear = currentDate.getFullYear();
+
+// Planning technicien
+let currentWeekStart = getMonday(new Date());
+let selectedTechniciens = new Set();
+
+// Filtres Projets
+let currentStatusFilter = 'all';
+let currentSearchText = '';
+
+
+// ==========================================
+// II. INITIALISATION
+// ==========================================
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const response = await fetch('/api/projets');
         const data = await response.json();
 
-        // Projets
+        // Recap Projets/Interventions
         document.getElementById('stat-projets').textContent = data.nombre_projets;
         document.getElementById('stat-retards').textContent = data.actions_retard;
         document.getElementById('stat-non-assignees').textContent = data.actions_non_assign;
 
-        // Dashboard
         document.getElementById('dash-stat-projets').textContent = data.nombre_projets;
         document.getElementById('dash-stat-retards').textContent = data.actions_retard;
         document.getElementById('dash-stat-non-assignees').textContent = data.actions_non_assign;
 
-        // Planning
         document.getElementById('plan-stat-entreprises').textContent = data.entreprises.length;
 
-        renderProjets(data.entreprises, data.all_weeks, data.week_start_dates);
-        renderDashboard(data.rows);
-        renderActionsAlertes(data.rows);
-
         let totalProjets = 0;
-
         data.entreprises.forEach(e => {
             totalProjets += e.projets.length;
         });
         document.getElementById('plan-stat-projets').textContent = totalProjets;
 
         globalProjectsData = data.entreprises;
+
+        // 3. Appel de la génération des vues
+        renderProjets(data.entreprises, data.all_weeks, data.week_start_dates);
+        renderDashboard(data.rows);
+        renderActionsAlertes(data.rows);
         initCalendars();
 
     } catch (error) {
         console.error("Erreur API :", error);
-        document.getElementById('entreprises-container').innerHTML = 
+        document.getElementById('entreprises-container').innerHTML =
             "<p style='color: red; text-align: center;'>Impossible de charger les données.</p>";
     }
 });
 
+
+// ==========================================
+// III. GÉNÉRATION DES VUES
+// ==========================================
+
+// Génère le HTML des projets et des interventions dans la vue "Projets"
 function renderProjets(entreprises, all_weeks, week_start_dates) {
     const container = document.getElementById('entreprises-container');
     let html = '';
@@ -73,7 +101,7 @@ function renderProjets(entreprises, all_weeks, week_start_dates) {
             all_weeks.forEach(semaine => {
                 html += `<div class="calendar-column">`;
                 const actions = projet.semaines[semaine] || [];
-                
+
                 actions.forEach(action => {
                     html += `
                         <div class="intervention-block ${action.css_class}" title="Sujet: ${action.sujet || 'Non renseigné'}">
@@ -98,6 +126,7 @@ function renderProjets(entreprises, all_weeks, week_start_dates) {
     container.innerHTML = html;
 }
 
+// Génère le tableau dans la vue "Dashboard"
 function renderDashboard(rows) {
     if (!rows || rows.length === 0) return;
 
@@ -133,60 +162,85 @@ function renderDashboard(rows) {
     tbody.innerHTML = tbodyHTML;
 }
 
-function filterDashboard() {
-    const inputs = document.querySelectorAll('.dashboard-filter');
-    const activeFilters = [];
+// Génère le HTML des projets dans les vues "Actions Non Assignées" et "Actions en Retard"
+function renderActionsAlertes(rows) {
+    if (!rows || rows.length === 0) return;
 
-    inputs.forEach(input => {
-        const searchText = input.value.trim().toLowerCase();
-        if (searchText !== '') {
-            activeFilters.push({
-                index: parseInt(input.getAttribute('data-col-index')),
-                text: searchText
-            });
+    const ulNonAssignees = document.getElementById('list-non-assignees');
+    const ulEnRetard = document.getElementById('list-en-retard');
+
+    let htmlNonAssign = '';
+    let htmlRetard = '';
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    rows.forEach(row => {
+        // Actions non assignées
+        if (!row.TECHNICIEN || String(row.TECHNICIEN).trim() === '') {
+            let dateLimiteStr = 'Non définie';
+            const deadlineStr = row.LIGNE_DE_MORT || row.DATE;
+            if (deadlineStr) {
+                const d = new Date(deadlineStr);
+                dateLimiteStr = d.toLocaleDateString('fr-FR');
+            }
+
+            htmlNonAssign += `
+                <li style="padding: 12px; margin-bottom: 8px; background: #fff3cd; border-left: 4px solid #ff9800; border-radius: 0;">
+                    <strong>${row.NATURE_INTER || 'Non renseigné'}</strong> (Projet: ${row['NOM PROJET'] || ''})
+                    <br>
+                    <small style="color: #666;">
+                        <strong>Entreprise:</strong> ${row.NOM || ''} |
+                        <strong>Technicien:</strong> Non assigné |
+                        <strong>Date limite:</strong> ${dateLimiteStr} |
+                        <strong>Sujet:</strong> ${row.SUJET_INTER || 'Non renseigné'}
+                    </small>
+                </li>
+            `;
+        }
+
+        // Actions en retard
+        const termine = row.TERMINE_ORIGINAL || 0;
+        const dateAComparer = row.LIGNE_DE_MORT || row.DATE;
+
+        if (dateAComparer && termine === 0) {
+            const deadlineDate = new Date(dateAComparer);
+            deadlineDate.setHours(0, 0, 0, 0);
+
+            if (deadlineDate < today) {
+                htmlRetard += `
+                    <li style="padding: 12px; margin-bottom: 8px; background: #f8d7da; border-left: 4px solid #dc3545; border-radius: 0;">
+                        <strong>${row.NATURE_INTER || 'Non renseigné'}</strong> (Projet: ${row['NOM PROJET'] || ''})
+                        <br>
+                        <small style="color: #666;">
+                            <strong>Entreprise:</strong> ${row.NOM || ''} |
+                            <strong>Technicien:</strong> ${row.TECHNICIEN || 'Non assigné'} |
+                            <strong>Date limite:</strong> ${deadlineDate.toLocaleDateString('fr-FR')} |
+                            <strong>Sujet:</strong> ${row.SUJET_INTER || 'Non renseigné'}
+                        </small>
+                    </li>
+                `;
+            }
         }
     });
 
-    const rows = document.querySelectorAll('#dashboard-tbody tr');
-
-    rows.forEach(row => {
-        let showRow = true;
-
-        activeFilters.forEach(filter => {
-            const cell = row.cells[filter.index];
-            if (cell) {
-                const cellText = cell.textContent.toLowerCase();
-                if (!cellText.includes(filter.text)) {
-                    showRow = false;
-                }
-            }
-        });
-
-        row.style.display = showRow ? '' : 'none';
-    });
-}
-
-// ===========================
-// HELPERS
-// ===========================
-
-// Dérouler/replier un projet
-
-function toggleElement(id, headerElement) {
-    const elem = document.getElementById(id);
-    const arrow = headerElement.querySelector('.toggle-arrow');
-    
-    if (elem.style.display === 'none') {
-        elem.style.display = 'block';
-        if (arrow) arrow.innerHTML = '▼';
-    } else {
-        elem.style.display = 'none';
-        if (arrow) arrow.innerHTML = '▶';
+    if (htmlNonAssign === '') {
+        htmlNonAssign = '<li style="padding: 12px; color: #4caf50;">Toutes les actions sont assignées à un technicien.</li>';
     }
+    if (htmlRetard === '') {
+        htmlRetard = '<li style="padding: 12px; color: #4caf50;">Aucune action en retard.</li>';
+    }
+
+    ulNonAssignees.innerHTML = htmlNonAssign;
+    ulEnRetard.innerHTML = htmlRetard;
 }
+
+
+// ==========================================
+// IV. NAVIGATION & SIDEBAR
+// ==========================================
 
 // Changement de vue
-
 function showPage(pageId) {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.getElementById(pageId).style.display = 'block';
@@ -203,26 +257,67 @@ function showPage(pageId) {
     document.querySelectorAll('.nav-subitem').forEach(item => item.classList.remove('active'));
 }
 
-// Bouton recherche dashboard
+// Ouvre/Ferme le menu "Planning"
+function handlePlanningClick() {
+    const sidebar = document.getElementById('sidebar');
+    const parent = document.getElementById('planningParent');
 
-function toggleSearch(iconElement) {
-    const input = iconElement.nextElementSibling;
-    if (input.style.display === 'none') {
-        input.style.display = 'block';
-        input.focus();
+    // Si la sidebar est réduite, on redirige directement vers "Planning général"
+    if (sidebar.classList.contains('collapsed')) {
+        showPlanningView('general');
     } else {
-        input.style.display = 'none';
+        parent.classList.toggle('open');
     }
 }
 
-// Boutons tout dérouler/replier
+// Change la vue interne du Planning (Général vs Technicien)
+function showPlanningView(view) {
+    document.getElementById('planningGeneralView').style.display = (view === 'general') ? 'block' : 'none';
+    document.getElementById('planningTechnicienView').style.display = (view === 'technicien') ? 'block' : 'none';
+    showPage('planningPage');
+}
 
+// Ouvre/Ferme la sidebar
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const hamburgerIcon = document.getElementById('hamburgerIcon');
+    const arrowIcon = document.getElementById('arrowIcon');
+
+    sidebar.classList.toggle('collapsed');
+
+    if (sidebar.classList.contains('collapsed')) {
+        hamburgerIcon.style.display = 'none';
+        arrowIcon.style.display = 'block';
+    } else {
+        hamburgerIcon.style.display = 'flex';
+        arrowIcon.style.display = 'none';
+    }
+}
+
+
+// ==========================================
+// V. Vue Projets et Interventions
+// ==========================================
+
+// Déroule/Replie une entreprise ou un projet
+function toggleElement(id, headerElement) {
+    const elem = document.getElementById(id);
+    const arrow = headerElement.querySelector('.toggle-arrow');
+
+    if (elem.style.display === 'none') {
+        elem.style.display = 'block';
+        if (arrow) arrow.innerHTML = '▼';
+    } else {
+        elem.style.display = 'none';
+        if (arrow) arrow.innerHTML = '▶';
+    }
+}
+
+// Boutons Tout Dérouler/Replier
 function toggleAllProjets(expand) {
     const allProjetsLists = document.querySelectorAll('.projets-list');
     const allInterventions = document.querySelectorAll('.interventions');
-
     const entrepriseHeaders = document.querySelectorAll('.entreprise-header .toggle-arrow');
-
     const projetHeaders = document.querySelectorAll('.projet-header .toggle-arrow');
 
     if (expand) {
@@ -238,11 +333,7 @@ function toggleAllProjets(expand) {
     }
 }
 
-//Recherche et boutons filtres projets
-
-let currentStatusFilter = 'all';
-let currentSearchText = '';
-
+// Filtres par recherche et boutons
 function applyFilters() {
     document.querySelectorAll('.entreprise').forEach(entreprise => {
         let hasVisibleProjet = false;
@@ -250,11 +341,10 @@ function applyFilters() {
         entreprise.querySelectorAll('.projet').forEach(p => {
             const statusRaw = p.querySelector('.projet-header small').textContent;
             const status = statusRaw.replace('[', '').replace(']', '').trim().toLowerCase();
-
             const interventionsCount = p.querySelectorAll('.intervention-block').length;
-
             const projetName = p.querySelector('.projet-header span').textContent.toLowerCase();
 
+            // Vérification statut
             let matchesStatus;
             if (currentStatusFilter === 'non planifie') {
                 matchesStatus = interventionsCount === 0;
@@ -264,6 +354,7 @@ function applyFilters() {
                 matchesStatus = (status === currentStatusFilter.toLowerCase());
             }
 
+            // Vérification texte
             const entrepriseName = entreprise.querySelector('.entreprise-header span').textContent.toLowerCase();
             const matchesSearch = currentSearchText === '' ||
                                  projetName.includes(currentSearchText.toLowerCase()) ||
@@ -285,13 +376,11 @@ function applyFilters() {
     });
 }
 
-// jsp
-
+// Listener sur les boutons et la barre de recherche
 document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-
         currentStatusFilter = btn.getAttribute('data-filter');
         applyFilters();
     });
@@ -302,48 +391,68 @@ document.getElementById('search-projet').addEventListener('input', function(e) {
     applyFilters();
 });
 
-// Gestion affichage des plannings
 
-function showPlanningView(view) {
-    document.getElementById('planningGeneralView').style.display = (view === 'general') ? 'block' : 'none';
-    document.getElementById('planningTechnicienView').style.display = (view === 'technicien') ? 'block' : 'none';
-    showPage('planningPage');
-}
+// ==========================================
+// VI. Dashboard
+// ==========================================
 
-// Sous menu planning
-
-function handlePlanningClick() {
-    const sidebar = document.getElementById('sidebar');
-    const parent = document.getElementById('planningParent');
-
-    if (sidebar.classList.contains('collapsed')) {
-        showPlanningView('general');
-    }
-    else {
-        parent.classList.toggle('open');
+// Affiche/Cache la barre de recherche sur le champs NOM, NOM PROJET et TECHNICIEN
+function toggleSearch(iconElement) {
+    const input = iconElement.nextElementSibling;
+    if (input.style.display === 'none') {
+        input.style.display = 'block';
+        input.focus();
+    } else {
+        input.style.display = 'none';
     }
 }
 
-// ===========================
-// GESTION DES PLANNINGS
-// ===========================
+// Filtre des lignes du tableau dans la vue "Dashboard"
+function filterDashboard() {
+    const inputs = document.querySelectorAll('.dashboard-filter');
+    const activeFilters = [];
 
-let globalProjectsData = [];
-let currentDate = new Date();
-let currentMonth = currentDate.getMonth();
-let currentYear = currentDate.getFullYear();
+    inputs.forEach(input => {
+        const searchText = input.value.trim().toLowerCase();
+        if (searchText !== '') {
+            activeFilters.push({
+                index: parseInt(input.getAttribute('data-col-index')),
+                text: searchText
+            });
+        }
+    });
 
-let currentWeekStart = getMonday(new Date());
-let selectedTechniciens = new Set();
+    const rows = document.querySelectorAll('#dashboard-tbody tr');
 
-// Initialisation globale
+    rows.forEach(row => {
+        let showRow = true;
+        activeFilters.forEach(filter => {
+            const cell = row.cells[filter.index];
+            if (cell) {
+                const cellText = cell.textContent.toLowerCase();
+                if (!cellText.includes(filter.text)) {
+                    showRow = false;
+                }
+            }
+        });
+        row.style.display = showRow ? '' : 'none';
+    });
+}
+
+
+// ==========================================
+// VII. Planning
+// ==========================================
+
+// Génère les planning général et technicien
 function initCalendars() {
     generateCalendar();
     extractTechniciens();
     generateTechnicienCalendar();
 }
 
-// Outil : Trouver le lundi de la semaine en cours
+// Gestion des dates
+
 function getMonday(d) {
     const date = new Date(d);
     const day = date.getDay() || 7;
@@ -352,14 +461,12 @@ function getMonday(d) {
     return date;
 }
 
-// Outil : Convertir "DD/MM/YYYY" en objet Date
 function parseDateFR(dateStr) {
     if (!dateStr || dateStr === 'N/A') return null;
     const parts = dateStr.split('/');
     return new Date(parts[2], parts[1] - 1, parts[0]);
 }
 
-// Outil : Calculer le numéro de semaine ISO
 function getISOWeekNumber(d) {
     const date = new Date(d.getTime());
     date.setHours(0, 0, 0, 0);
@@ -368,8 +475,7 @@ function getISOWeekNumber(d) {
     return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
 }
 
-
-// --- 1. PLANNING GÉNÉRAL (MOIS) ---
+// Planning général
 
 function generateCalendar() {
     const grid = document.getElementById('calendarGrid');
@@ -380,7 +486,6 @@ function generateCalendar() {
     const firstDay = new Date(currentYear, currentMonth, 1);
     let startDayOfWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Lundi = 0
 
-    // En-têtes (8 colonnes : Semaine + 7 Jours)
     grid.innerHTML += `<div class="calendar-day-header" style="background:#34495e;">Semaine</div>`;
     ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'].forEach(d => {
         grid.innerHTML += `<div class="calendar-day-header">${d}</div>`;
@@ -390,7 +495,6 @@ function generateCalendar() {
     let currentGridDate = new Date(firstDay);
     currentGridDate.setDate(currentGridDate.getDate() - startDayOfWeek);
 
-    // On affiche généralement 5 ou 6 semaines pour couvrir le mois
     for (let row = 0; row < 6; row++) {
         const weekNum = getISOWeekNumber(currentGridDate);
         grid.innerHTML += `<div class="calendar-week-number">S${weekNum}</div>`;
@@ -407,7 +511,6 @@ function generateCalendar() {
                 <div class="calendar-day-number">${currentGridDate.getDate()}</div>
             `;
 
-            // Vérifier quels projets sont en cours à cette date
             globalProjectsData.forEach(e => {
                 e.projets.forEach(p => {
                     const start = parseDateFR(p.date_debut);
@@ -451,8 +554,7 @@ function changeMonth(offset) {
     generateCalendar();
 }
 
-
-// --- 2. PLANNING TECHNICIEN (SEMAINE) ---
+// Planning technicien
 
 function extractTechniciens() {
     const techSet = new Set();
@@ -469,7 +571,7 @@ function extractTechniciens() {
     });
 
     const techList = Array.from(techSet).sort();
-    selectedTechniciens = new Set(techList); // Tout coché par défaut
+    selectedTechniciens = new Set(techList);
 
     const container = document.getElementById('technicienCheckboxes');
     container.innerHTML = '';
@@ -508,7 +610,6 @@ function generateTechnicienCalendar() {
     document.getElementById('currentWeekDisplay').textContent =
         `Semaine du ${currentWeekStart.toLocaleDateString('fr-FR')} au ${weekEnd.toLocaleDateString('fr-FR')}`;
 
-    // En-têtes
     grid.innerHTML += `<div class="calendar-day-header" style="background: #34495e;">Technicien</div>`;
     const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
     for (let i = 0; i < 7; i++) {
@@ -517,18 +618,14 @@ function generateTechnicienCalendar() {
         grid.innerHTML += `<div class="calendar-day-header">${dayNames[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}</div>`;
     }
 
-    // Lignes pour chaque technicien sélectionné
     const techArray = Array.from(selectedTechniciens).sort();
     techArray.forEach(tech => {
-        // Colonne 1 : Nom
         grid.innerHTML += `<div class="calendar-day" style="display:flex;text-align:center;align-items:center;justify-content:center;font-weight:bold;background:#f8f9fa;">${tech}</div>`;
 
-        // Colonnes 2 à 8 : Jours
         for (let i = 0; i < 7; i++) {
             const currentDay = new Date(currentWeekStart);
             currentDay.setDate(currentDay.getDate() + i);
 
-            // Format YYYY-MM-DD pour comparer avec l'API
             const y = currentDay.getFullYear();
             const m = String(currentDay.getMonth() + 1).padStart(2, '0');
             const d = String(currentDay.getDate()).padStart(2, '0');
@@ -536,7 +633,6 @@ function generateTechnicienCalendar() {
 
             let dayHtml = `<div class="calendar-day">`;
 
-            // Chercher les interventions du technicien à cette date
             globalProjectsData.forEach(e => {
                 e.projets.forEach(p => {
                     Object.values(p.semaines || {}).forEach(actions => {
@@ -564,6 +660,12 @@ function changeWeek(offset) {
     generateTechnicienCalendar();
 }
 
+
+// ==========================================
+// VIII. Popup
+// ==========================================
+
+// Ouvre le popup et affiche les infos du projet cliqué
 function openProjectModal(projectName) {
     let foundProject = null;
     let foundEntreprise = null;
@@ -647,6 +749,7 @@ function openProjectModal(projectName) {
     modal.classList.add('active');
 }
 
+// Ferme le popup
 function closeProjectModal(event) {
     const modal = document.getElementById('projectModal');
     if (!event || event.target === modal) {
@@ -654,100 +757,13 @@ function closeProjectModal(event) {
     }
 }
 
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const hamburgerIcon = document.getElementById('hamburgerIcon');
-    const arrowIcon = document.getElementById('arrowIcon');
 
-    sidebar.classList.toggle('collapsed');
-
-    if (sidebar.classList.contains('collapsed')) {
-        hamburgerIcon.style.display = 'none';
-        arrowIcon.style.display = 'block';
-    } else {
-        hamburgerIcon.style.display = 'flex';
-        arrowIcon.style.display = 'none';
-    }
-}
-
-function renderActionsAlertes(rows) {
-    if (!rows || rows.length === 0) return;
-
-    const ulNonAssignees = document.getElementById('list-non-assignees');
-    const ulEnRetard = document.getElementById('list-en-retard');
-
-    let htmlNonAssign = '';
-    let htmlRetard = '';
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    rows.forEach(row => {
-        // Actions non assignées
-        if (!row.TECHNICIEN || String(row.TECHNICIEN).trim() === '') {
-
-            let dateLimiteStr = 'Non définie';
-            const deadlineStr = row.LIGNE_DE_MORT || row.DATE;
-            if (deadlineStr) {
-                const d = new Date(deadlineStr);
-                dateLimiteStr = d.toLocaleDateString('fr-FR');
-            }
-
-            htmlNonAssign += `
-                <li style="padding: 12px; margin-bottom: 8px; background: #fff3cd; border-left: 4px solid #ff9800; border-radius: 0;">
-                    <strong>${row.NATURE_INTER || 'Non renseigné'}</strong> (Projet: ${row['NOM PROJET'] || ''})
-                    <br>
-                    <small style="color: #666;">
-                        <strong>Entreprise:</strong> ${row.NOM || ''} |
-                        <strong>Technicien:</strong> Non assigné |
-                        <strong>Date limite:</strong> ${dateLimiteStr} |
-                        <strong>Sujet:</strong> ${row.SUJET_INTER || 'Non renseigné'}
-                    </small>
-                </li>
-            `;
-        }
-
-        // Actions en retard
-        const termine = row.TERMINE_ORIGINAL || 0;
-        const dateAComparer = row.LIGNE_DE_MORT || row.DATE;
-
-        if (dateAComparer && termine === 0) {
-            const deadlineDate = new Date(dateAComparer);
-            deadlineDate.setHours(0, 0, 0, 0);
-
-            if (deadlineDate < today) {
-                htmlRetard += `
-                    <li style="padding: 12px; margin-bottom: 8px; background: #f8d7da; border-left: 4px solid #dc3545; border-radius: 0;">
-                        <strong>${row.NATURE_INTER || 'Non renseigné'}</strong> (Projet: ${row['NOM PROJET'] || ''})
-                        <br>
-                        <small style="color: #666;">
-                            <strong>Entreprise:</strong> ${row.NOM || ''} |
-                            <strong>Technicien:</strong> ${row.TECHNICIEN || 'Non assigné'} |
-                            <strong>Date limite:</strong> ${deadlineDate.toLocaleDateString('fr-FR')} |
-                            <strong>Sujet:</strong> ${row.SUJET_INTER || 'Non renseigné'}
-                        </small>
-                    </li>
-                `;
-            }
-        }
-    });
-
-    if (htmlNonAssign === '') {
-        htmlNonAssign = '<li style="padding: 12px; color: #4caf50;">Toutes les actions sont assignées à un technicien.</li>';
-    }
-    if (htmlRetard === '') {
-        htmlRetard = '<li style="padding: 12px; color: #4caf50;">Aucune action en retard.</li>';
-    }
-
-    ulNonAssignees.innerHTML = htmlNonAssign;
-    ulEnRetard.innerHTML = htmlRetard;
-}
-
-// =====================
-// Boutons secrets
-// =====================
+// ==========================================
+// IX. Boutons secrets
+// ==========================================
 
 document.getElementById('secret-btn').addEventListener('click', toggleSecret);
+
 function toggleSecret() {
     const sc = document.getElementById('secret-content');
     const secondSecret = document.getElementById('second-secret');
