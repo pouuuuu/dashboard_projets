@@ -794,9 +794,17 @@ function openProjectModal(projectName) {
 
     if (foundProject.semaines) {
         for (const [semaineKey, actions] of Object.entries(foundProject.semaines)) {
+            const numSemaine = semaineKey.includes(' - ') ? semaineKey.split(' - ')[1] : semaineKey;
+
             actions.forEach(action => {
                 totalInterventions++;
                 let statutClean = action.css_class.replace('statut-', '').replace(/-/g, ' ');
+
+                let dateDisplay = 'N/A';
+                if (action.date) {
+                    const parts = action.date.split('-');
+                    dateDisplay = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
 
                 interventionsHtml += `
                     <div class="modal-intervention-item">
@@ -805,7 +813,7 @@ function openProjectModal(projectName) {
                         </div>
                         <div class="modal-intervention-details">
                             <strong>👤 Technicien :</strong> ${action.technicien || 'Non assigné'}<br>
-                            <strong>📅 Semaine :</strong> ${semaineKey} (Date: ${action.date || 'N/A'})<br>
+                            <strong>📅 Date :</strong> ${dateDisplay} (Semaine ${numSemaine})<br>
                             <strong>📝 Sujet :</strong> ${action.sujet || 'Non renseigné'}<br>
                             <strong>📊 Statut :</strong> <span class="modal-badge ${action.css_class}">${statutClean.toUpperCase()}</span>
                         </div>

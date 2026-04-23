@@ -222,7 +222,7 @@ body {
     transition: all 0.3s ease;
 }
 .filter-btn:hover { background-color: #c4c4c4; }
-.filter-btn.active { background-color: #4b9ce2; color: white; box-shadow: 0 0 8px rgba(75,156,226,0.4); }
+.filter-btn.active { background-color: #4b9ce2; color: white; }
 
 .filter-bar { display: flex; gap: 10px; margin-bottom: 30px; }
 
@@ -367,14 +367,14 @@ body {
 .statut-termine { background-color: #d4edda; }
 .statut-inconnu { background-color: #e2e3e5; }
 
-.dashboard-table { width: 100%; table-layout: fixed; border-collapse: collapse; background-color: #fff; overflow: hidden; }
+.dashboard-table { width: 100%; border-collapse: collapse; background-color: #fff; overflow: hidden; }
 .dashboard-table th, .dashboard-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
 .dashboard-table th { background-color: #4b9ce2; color: white; font-weight: 600; }
 .dashboard-table tr:hover { background-color: #f0f4f8; }
 
 #dashboard-tbody td {
     font-size: 0.85em;
-    max-width: 1px;
+    max-width: 180px;
     padding: 8px 5px;
 }
 
@@ -385,7 +385,6 @@ body {
 #dashboard-thead th, #dashboard-tbody td {
     text-align: left;
     vertical-align: middle;
-    width: 1%;
 }
 
 .calendar-container { background: white; padding: 25px; }

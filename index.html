@@ -167,6 +167,10 @@
         <div id="planningGeneralView">
             <h1>📅 Planning Général</h1>
 
+            <button onclick="showPlanningView('technicien')" class="calendar-nav-btn" style="margin-bottom: 20px; border-radius: 4px;">
+                🔄 Basculer vers le Planning Technicien
+            </button>
+
             <div class="resume-box">
                 <div class="resume-stat">
                     <span class="resume-stat-number" id="plan-stat-entreprises">-</span>
@@ -210,6 +214,10 @@
 
         <div id="planningTechnicienView" class="hidden-view">
             <h1>👤 Planning Technicien</h1>
+
+            <button onclick="showPlanningView('general')" class="calendar-nav-btn" style="margin-bottom: 20px; border-radius: 4px;">
+                🔄 Basculer vers le Planning Général
+            </button>
 
             <div class="tech-filter-wrapper">
                 <div class="tech-filter-header">
