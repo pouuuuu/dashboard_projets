@@ -301,19 +301,64 @@ body {
 .projet-header:hover { filter: brightness(0.85); }
 .projet-dates { font-size: 0.9em; font-weight: 400; opacity: 0.85; }
 
-.interventions { display: none; padding: 15px; border-top: 1px solid #ddd; }
-.calendar-weeks { display: flex; gap: 5px; margin-bottom: 10px; }
-.calendar-week { flex: 1; text-align: center; font-weight: 600; padding: 6px; background-color: #a0c4ff; color: #333; }
-.calendar-interventions { display: flex; gap: 5px; }
-.calendar-column { flex: 1; display: flex; flex-direction: column; gap: 5px; min-height: 40px; }
-
-.intervention-block {
-    padding: 8px;
+.interventions { display: none; padding: 15px; border-top: 1px solid #ddd; overflow-x: auto}
+.calendar-week {
+    flex: 1;
+    min-width: 0;
     text-align: center;
     font-weight: 600;
-    font-size: 0.9em;
+    font-size: 0.8em;
+    padding: 6px 2px;
+    background-color: #a0c4ff;
+    color: #333;
+    overflow-wrap: anywhere;
+}
+
+.calendar-weeks, .calendar-interventions {
+    display: flex;
+    gap: 5px;
+    min-width: 750px;
+}
+.calendar-weeks { margin-bottom: 10px; }
+
+.calendar-column { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; min-height: 40px; }
+
+.intervention-block {
+    padding: 4px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.8em;
+    min-height: 60px;
+    overflow-wrap: anywhere;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
+
+#calendarTechnicienGrid .intervention-block {
+    cursor: pointer;
+}
+
+.inter-nature {
+    font-weight: 700;
+    font-size: 0.95em;
+    margin-bottom: 2px;
+}
+
+.inter-sujet {
+    font-size: 1em;
+    font-style: italic;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.inter-tech, .inter-entreprise {
+    font-size: 0.95em;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    padding-top: 2px;
+}
+
 .toggle-arrow { cursor: pointer; margin-right: 8px; font-weight: bold; display: inline-block; transition: transform 0.3s ease; }
 
 .statut-a-faire { background-color: #f8d7da; }
@@ -326,6 +371,22 @@ body {
 .dashboard-table th, .dashboard-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
 .dashboard-table th { background-color: #4b9ce2; color: white; font-weight: 600; }
 .dashboard-table tr:hover { background-color: #f0f4f8; }
+
+#dashboard-tbody td {
+    font-size: 0.85em;
+    max-width: 1px;
+    padding: 8px 5px;
+}
+
+#dashboard-thead th {
+    font-size: 0.9em;
+}
+
+#dashboard-thead th, #dashboard-tbody td {
+    text-align: left;
+    vertical-align: middle;
+    width: 1%;
+}
 
 .calendar-container { background: white; padding: 25px; }
 .calendar-controls {

@@ -73,7 +73,7 @@ function renderProjets(entreprises, all_weeks, week_start_dates) {
         html += `
         <div class="entreprise" data-status="${entreprise.statut_entreprise}">
             <div class="entreprise-header" onclick="toggleElement('projets-${indexE}', this)">
-                <span><span class="toggle-arrow">▶</span> ${entreprise.nom_entreprise} <small>[${entreprise.statut_entreprise}]</small></span>
+                <span><span class="toggle-arrow">▶</span> ${entreprise.nom_entreprise}</span>
             </div>
             <div class="projets-list" id="projets-${indexE}" style="display: none">
         `;
@@ -93,20 +93,27 @@ function renderProjets(entreprises, all_weeks, week_start_dates) {
                         <div class="calendar-weeks">
             `;
 
-            all_weeks.forEach(semaine => {
-                html += `<div class="calendar-week">Semaine ${semaine} – ${week_start_dates[semaine]}</div>`;
+            const project_weeks = Object.keys(projet.semaines);
+
+            project_weeks.forEach(semaine => {
+                const parts = semaine.split('-');
+                const annee = parts[0];
+                const numSemaine = parts[1];
+
+                html += `<div class="calendar-week">Semaine ${numSemaine} - ${annee} <br> ${week_start_dates[semaine]}</div>`;
             });
             html += `</div><div class="calendar-interventions">`;
 
-            all_weeks.forEach(semaine => {
+            project_weeks.forEach(semaine => {
                 html += `<div class="calendar-column">`;
-                const actions = projet.semaines[semaine] || [];
+                const actions = projet.semaines[semaine];
 
                 actions.forEach(action => {
                     html += `
-                        <div class="intervention-block ${action.css_class}" title="Sujet: ${action.sujet || 'Non renseigné'}">
-                            ${action.emoji} ${action.nature} <br>
-                            ${action.technicien || 'Non assigné'}
+                        <div class="intervention-block ${action.css_class}">
+                            <div class="inter-nature">${action.emoji} ${action.nature}</div>
+                            <div class="inter-sujet">${action.sujet || 'Sans sujet'}</div>
+                            <div class="inter-tech">${action.technicien || 'Non assigné'}</div>
                         </div>
                     `;
                 });
@@ -172,28 +179,41 @@ function renderActionsAlertes(rows) {
     let htmlNonAssign = '';
     let htmlRetard = '';
 
+    const techniciensEnRetard = new Set()
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     rows.forEach(row => {
         // Actions non assignées
         if (!row.TECHNICIEN || String(row.TECHNICIEN).trim() === '') {
-            let dateLimiteStr = 'Non définie';
-            const deadlineStr = row.LIGNE_DE_MORT || row.DATE;
+            let dateLimiteStr
+            const deadlineStr = row.LIGNE_DE_MORT;
             if (deadlineStr) {
                 const d = new Date(deadlineStr);
                 dateLimiteStr = d.toLocaleDateString('fr-FR');
             }
 
+            let nature
+
+            if (row.NATURE_INTER.includes("- ")) {
+                    nature = row.NATURE_INTER.split("- ")[1]
+                } else {
+                    nature = row.NATURE_INTER
+                }
+
             htmlNonAssign += `
                 <li style="padding: 12px; margin-bottom: 8px; background: #fff3cd; border-left: 4px solid #ff9800; border-radius: 0;">
-                    <strong>${row.NATURE_INTER || 'Non renseigné'}</strong> (Projet: ${row['NOM PROJET'] || ''})
+                    <strong>
+                        ${row.NOM ? row.NOM + '<br>' : ''}
+                        ${row['NOM PROJET'] ? row['NOM PROJET'] : ''}
+                    </strong> 
+                    ${row.SUJET_INTER ? "<strong> : </strong>" + row.SUJET_INTER : ''}
                     <br>
                     <small style="color: #666;">
-                        <strong>Entreprise:</strong> ${row.NOM || ''} |
-                        <strong>Technicien:</strong> Non assigné |
-                        <strong>Date limite:</strong> ${dateLimiteStr} |
-                        <strong>Sujet:</strong> ${row.SUJET_INTER || 'Non renseigné'}
+                        ${row.NATURE_INTER ? '<strong>Nature: </strong>' + nature : ''}
+                        ${row.NATURE_INTER && dateLimiteStr ? " | " : ""}
+                        ${dateLimiteStr ? '<strong>Date limite: </strong>' + dateLimiteStr : ''}
                     </small>
                 </li>
             `;
@@ -201,22 +221,42 @@ function renderActionsAlertes(rows) {
 
         // Actions en retard
         const termine = row.TERMINE_ORIGINAL || 0;
-        const dateAComparer = row.LIGNE_DE_MORT || row.DATE;
+        const dateAComparer = row.LIGNE_DE_MORT;
 
         if (dateAComparer && termine === 0) {
             const deadlineDate = new Date(dateAComparer);
             deadlineDate.setHours(0, 0, 0, 0);
 
             if (deadlineDate < today) {
+
+                let nature
+                let techName
+
+                if (row.NATURE_INTER.includes("- ")) {
+                    nature = row.NATURE_INTER.split("- ")[1]
+                } else {
+                    nature = row.NATURE_INTER
+                }
+
+                if (row.TECHNICIEN) {
+                    techName = row.TECHNICIEN
+                    techniciensEnRetard.add(techName)
+                } else {
+                    techName = "Non assigné"
+                }
+
                 htmlRetard += `
-                    <li style="padding: 12px; margin-bottom: 8px; background: #f8d7da; border-left: 4px solid #dc3545; border-radius: 0;">
-                        <strong>${row.NATURE_INTER || 'Non renseigné'}</strong> (Projet: ${row['NOM PROJET'] || ''})
+                    <li class="retard-item" data-tech="${techName}"style="padding: 12px; margin-bottom: 8px; background: #f8d7da; border-left: 4px solid #dc3545; border-radius: 0;">
+                        <strong>
+                            ${row.NOM ? row.NOM + '<br>' : ''}
+                            ${row['NOM PROJET'] ? row['NOM PROJET'] + ' : ' : ''}
+                        </strong> 
+                        ${row.SUJET_INTER || ''}
                         <br>
                         <small style="color: #666;">
-                            <strong>Entreprise:</strong> ${row.NOM || ''} |
-                            <strong>Technicien:</strong> ${row.TECHNICIEN || 'Non assigné'} |
-                            <strong>Date limite:</strong> ${deadlineDate.toLocaleDateString('fr-FR')} |
-                            <strong>Sujet:</strong> ${row.SUJET_INTER || 'Non renseigné'}
+                            <strong>Technicien:</strong> ${techName} |
+                            ${row.NATURE_INTER ? '<strong>Nature: </strong>' + nature + ' |' : ''}
+                            <strong>Date limite:</strong> ${deadlineDate.toLocaleDateString('fr-FR')}
                         </small>
                     </li>
                 `;
@@ -231,10 +271,39 @@ function renderActionsAlertes(rows) {
         htmlRetard = '<li style="padding: 12px; color: #4caf50;">Aucune action en retard.</li>';
     }
 
+    const oldSelect = document.getElementById('filter-retard-tech');
+    if (oldSelect) oldSelect.remove();
+
+    if (htmlRetard === '') {
+        htmlRetard = '<li style="padding: 12px; color: #4caf50;">Aucune action en retard.</li>';
+    } else {
+        let selectHtml = `<select id="filter-retard-tech" onchange="filterRetards()" style="margin-bottom: 15px; width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; cursor: pointer;">
+            <option value="all">Afficher tous les techniciens</option>`;
+
+        Array.from(techniciensEnRetard).sort().forEach(tech => {
+            selectHtml += `<option value="${tech}">${tech}</option>`;
+        });
+        selectHtml += `</select>`;
+
+        ulEnRetard.insertAdjacentHTML('beforebegin', selectHtml);
+    }
+
     ulNonAssignees.innerHTML = htmlNonAssign;
     ulEnRetard.innerHTML = htmlRetard;
 }
 
+function filterRetards() {
+    const selectedTech = document.getElementById('filter-retard-tech').value;
+    const items = document.querySelectorAll('#list-en-retard .retard-item');
+
+    items.forEach(item => {
+        if (selectedTech === 'all' || item.getAttribute('data-tech') === selectedTech) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
 
 // ==========================================
 // IV. NAVIGATION & SIDEBAR
@@ -242,6 +311,9 @@ function renderActionsAlertes(rows) {
 
 // Changement de vue
 function showPage(pageId) {
+
+    window.scrollTo(0,0)
+
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.getElementById(pageId).style.display = 'block';
 
@@ -640,8 +712,11 @@ function generateTechnicienCalendar() {
                             if (a.technicien === tech && a.date === dateString) {
                                 const safeProjectName = p.nom_projet.replace(/'/g, "\\'");
                                 dayHtml += `
-                                    <div class="intervention-block ${a.css_class}" style="margin:3px;" title="${p.nom_projet}" onclick="openProjectModal('${safeProjectName}')">
-                                        ${a.emoji} ${a.nature}<br><small style="opacity:0.8;">${p.nom_projet}</small>
+                                    <div class="intervention-block ${a.css_class}" style="margin:3px;" onclick="openProjectModal('${safeProjectName}')">
+                                        <div class="inter-nature">${a.nature}</div>
+                                        <div class="inter-sujet">${a.sujet || 'Sans sujet'}</div>
+                                        <div class="inter-tech" style="opacity:0.8; font-size:0.9em;">${p.nom_projet}</div>
+                                        <div class="inter-entreprise" style="opacity:0.8; font-size:0.9em;">${e.nom_entreprise}</div>
                                     </div>
                                 `;
                             }
@@ -726,11 +801,12 @@ function openProjectModal(projectName) {
                 interventionsHtml += `
                     <div class="modal-intervention-item">
                         <div class="modal-intervention-header">
-                            ${action.emoji} ${action.nature} ${action.numeror ? '(#' + action.numeror + ')' : ''}
+                            ${action.nature} ${action.numeror ? '(#' + action.numeror + ')' : ''}
                         </div>
                         <div class="modal-intervention-details">
                             <strong>👤 Technicien :</strong> ${action.technicien || 'Non assigné'}<br>
                             <strong>📅 Semaine :</strong> ${semaineKey} (Date: ${action.date || 'N/A'})<br>
+                            <strong>📝 Sujet :</strong> ${action.sujet || 'Non renseigné'}<br>
                             <strong>📊 Statut :</strong> <span class="modal-badge ${action.css_class}">${statutClean.toUpperCase()}</span>
                         </div>
                     </div>
