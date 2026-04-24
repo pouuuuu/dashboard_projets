@@ -1,8 +1,4 @@
-import json
-
 from fastapi import FastAPI
-from fastapi.encoders import jsonable_encoder
-from fastapi import Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import mysql.connector
@@ -26,8 +22,9 @@ DB_CONFIG = {
 
 
 def clean_statut(statut):
-    if not statut:
-        return "a faire"
+    if statut is None or str(statut).strip() == "":
+        return "inconnu"
+
     if isinstance(statut, bytes):
         statut = statut.decode("utf-8", errors="ignore")
 
@@ -46,7 +43,7 @@ def clean_statut(statut):
     elif "termine" in s or "✔" in s:
         return "termine"
     else:
-        return "a faire"
+        return "inconnu"
 
 
 @app.get("/")

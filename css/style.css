@@ -590,3 +590,38 @@ body {
 .badge-infra { background: #1872A0; color: white; }
 .badge-logiciel { background: #8F536F; color: white; }
 .badge-autre { background: #4b9ce2; color: white; }
+
+#btn-back-to-top {
+    position: fixed;
+    bottom: 85px;
+    right: 20px;
+    width: 45px;
+    height: 45px;
+    background-color: #4b9ce2;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s, background-color 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#btn-back-to-top svg {
+    width: 22px;
+    height: 22px;
+}
+
+#btn-back-to-top:hover {
+    background-color: #357ab7;
+}
+
+#btn-back-to-top.show {
+    opacity: 1;
+    visibility: visible;
+}
